@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>OP Permit & Transfer</title>
+  <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+</head>
+<body style="font-family:sans-serif; padding:20px; max-width:500px; margin:auto;">
+  <h2>Use Permit and Transfer (OP Token)</h2>
+
+  <label>Token Owner Address:</label><br>
+  <input id="owner" style="width:100%" /><br><br>
+
+  <label>Recipient Address:</label><br>
+  <input id="recipient" style="width:100%" /><br><br>
+
+  <label>Amount (OP):</label><br>
+  <input id="amount" type="number" step="0.0001" style="width:100%" /><br><br>
+
+  <label>Deadline (unix timestamp):</label><br>
+  <input id="deadline" type="number" style="width:100%" /><br><br>
+
+  <label>v:</label><br>
+  <input id="v" type="number" style="width:100%" /><br><br>
+
+  <label>r:</label><br>
+  <input id="r" style="width:100%" /><br><br>
+
+  <label>s:</label><br>
+  <input id="s" style="width:100%" /><br><br>
+
+  <button onclick="usePermitAndTransfer()" style="padding:10px 20px; font-size:16px;">Execute</button>
+
+  <p id="status" style="margin-top:20px; color:green;"></p>
+
+  <script>
+    async function usePermitAndTransfer() {
+      const tokenAddress = "0x4200000000000000000000000000000000000042"; // OP token on Optimism
+      const abi = [
+        "function permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+        "function transferFrom(address,address,uint256) returns (bool)"
+      ];
+
+      const owner = document.getElementById("owner").value;
+      const recipient = document.getElementById("recipient").value;
+      const value = ethers.utils.parseUnits(document.getElementById("amount").value, 18);
+      const deadline = parseInt(document.getElementById("deadline").value);
+      const v = parseInt(document.getElementById("v").value);
+      const r = document.getElementById("r").value;
+      const s = document.getElementById("s").value;
+
+      const status = document.getElementById("status");
+      status.textContent = "Connecting to MetaMask...";
+
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const spender = await signer.getAddress();
+
+        const token = new ethers.Contract(tokenAddress, abi, signer);
+
+        status.textContent = "Sending permit() transaction...";
+        const tx1 = await token.permit(owner, spender, value, deadline, v, r, s);
+        await tx1.wait();
+
+        status.textContent = "Permit success. Sending transferFrom()...";
+        const tx2 = await token.transferFrom(owner, recipient, value);
+        await tx2.wait();
+
+        status.textContent = "✅ Success! Tokens transferred.";
+      } catch (e) {
+        console.error(e);
+        status.textContent = "❌ Error: " + (e.reason || e.message);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>OP Permit Signature</title>
+  <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+</head>
+<body style="font-family:sans-serif; padding:20px; max-width:500px; margin:auto;">
+  <h2>Sign Permit for OP Token</h2>
+
+  <label>Owner Address:</label><br>
+  <input id="owner" style="width:100%" /><br><br>
+
+  <label>Spender Address:</label><br>
+  <input id="spender" style="width:100%" /><br><br>
+
+  <label>Amount (OP):</label><br>
+  <input id="amount" type="number" step="0.0001" style="width:100%" /><br><br>
+
+  <label>Deadline (unix timestamp):</label><br>
+  <input id="deadline" type="number" style="width:100%" /><br><br>
+
+  <button onclick="signPermit()" style="padding:10px 20px; font-size:16px;">Sign Permit</button>
+
+  <pre id="output" style="margin-top:20px; white-space:pre-wrap; color:green;"></pre>
+
+  <script>
+    async function signPermit() {
+      const output = document.getElementById("output");
+      output.textContent = "Connecting to MetaMask...";
+
+      const tokenAddress = "0x4200000000000000000000000000000000000042"; // OP Token
+      const tokenName = "Optimism";
+      const version = "1";
+      const chainId = 10; // Optimism mainnet
+
+      const owner = document.getElementById("owner").value;
+      const spender = document.getElementById("spender").value;
+      const value = ethers.utils.parseUnits(document.getElementById("amount").value, 18).toString();
+      const deadline = document.getElementById("deadline").value;
+
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+
+        const nonce = await provider.call({
+          to: tokenAddress,
+          data: "0x7ecebe00000000000000000000000000" + owner.substring(2).padStart(64, '0') // nonces(address)
+        });
+        const nonceValue = ethers.BigNumber.from(nonce).toString();
+
+        const domain = {
+          name: tokenName,
+          version: version,
+          chainId: chainId,
+          verifyingContract: tokenAddress
+        };
+
+        const types = {
+          Permit: [
+            { name: "owner", type: "address" },
+            { name: "spender", type: "address" },
+            { name: "value", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" }
+          ]
+        };
+
+        const message = {
+          owner,
+          spender,
+          value,
+          nonce: nonceValue,
+          deadline
+        };
+
+        const signature = await signer._signTypedData(domain, types, message);
+        const sig = ethers.utils.splitSignature(signature);
+
+        output.textContent = `
+✅ Signature Created
+
+v: ${sig.v}
+r: ${sig.r}
+s: ${sig.s}
+
+Use this data in the transfer page.
+        `.trim();
+      } catch (err) {
+        console.error(err);
+        output.textContent = "❌ Error: " + (err.reason || err.message);
+      }
+    }
+  </script>
+</body>
+</html>
